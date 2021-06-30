@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>STONKS</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <script src="https://code.jquery.com/jquery-3.6.0.js" integrity="sha256-H+K7U5CnXl1h5ywQfKtSj8PCmoN9aaq30gDh27Xc0jk=" crossorigin="anonymous"></script>
+        <script type="application/javascript">
+            var symbols = ['ENOB','MARA','SPY','AMC','GME','BCRX','BYND','TELL','IDEX','SESN','MVIS','NIO','RIOT','CCIV','LX','NOK','BBBY','WKHS','NAKD','EXPR','CLOV','FSR','RIDE'];
+            var sorted_by = "delta";
+            var sorted_direction = "descending";
+            var column_index = 3;
+            var ii = 0;
+            var canvas_interval;
+            function defer(method,condition){
+                if(condition){
+                    method()
+                } else {
+                    setTimeout(()=>{defer(method,condition);},100);
+                }
+            }
+            function isIterable(obj) {
+                if (obj == null) {
+                    return false;
+                }
+                return typeof obj[Symbol.iterator] === 'function';
+            }
+            function sortTable() {
+                var prev_sorted_by = sorted_by;
+                switch(column_index){
+                    case 0:
+                        sorted_by = "symbol";
+                        break;
+                    case 1:
+                        sorted_by = "start_price";
+                        break;
+                    case 2:
+                        sorted_by = "price";
+                        break;
+                    case 3:
+                        sorted_by = "delta";
+                        break;
+                }
+                if(sorted_direction == ""){
+                    sorted_direction = "descending";
+                }
+                var table, rows, switching, i, x, y, shouldSwitch;
+                table = document.getElementById("tickers");
+                switching = true;
+                while (switching) {
+                    switching = false;
+                    rows = table.rows;
+                    for (i = 1; i < (rows.length - 1); i++) {
+                        shouldSwitch = false;
+                        if(column_index == 0){
+                            x = rows[i].getElementsByTagName("TD")[column_index].innerHTML.toLowerCase()[0].charCodeAt();
+                            y = rows[i + 1].getElementsByTagName("TD")[column_index].innerHTML.toLowerCase()[0].charCodeAt();
+                        } else {
+                            x = parseFloat(rows[i].getElementsByTagName("TD")[column_index].innerHTML);
+                            y = parseFloat(rows[i + 1].getElementsByTagName("TD")[column_index].innerHTML);
+                        }
+                        if(sorted_direction == "descending"){
+                            if (x < y) {
+                                shouldSwitch = true;
+                                break;
+                            }
+                        } else {
+                            if(x > y){
+                                shouldSwitch = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (shouldSwitch) {
+                        rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                        switching = true;
+                    }
+                }
+            }
+            function sortTable_onclick() {
+                var prev_sorted_by = sorted_by;
+                switch(column_index){
+                    case 0:
+                        sorted_by = "symbol";
+                        break;
+                    case 1:
+                        sorted_by = "start_price";
+                        break;
+                    case 2:
+                        sorted_by = "price";
+                        break;
+                    case 3:
+                        sorted_by = "delta";
+                        break;
+                }
+                if(sorted_direction == ""){
+                    sorted_direction = "descending";
+                } else {
+                    if(prev_sorted_by == sorted_by){
+                        if(sorted_direction == "ascending"){
+                            sorted_direction = "descending";
+                        } else {
+                            sorted_direction = "ascending";
+                        }
+                    } else {
+                        sorted_direction = "descending";
+                    }
+                }
+                var table, rows, switching, i, x, y, shouldSwitch;
+                table = document.getElementById("tickers");
+                switching = true;
+                while (switching) {
+                    switching = false;
+                    rows = table.rows;
+                    for (i = 1; i < (rows.length - 1); i++) {
+                        shouldSwitch = false;
+                        if(column_index == 0){
+                            x = rows[i].getElementsByTagName("TD")[column_index].innerHTML.toLowerCase()[0].charCodeAt();
+                            y = rows[i + 1].getElementsByTagName("TD")[column_index].innerHTML.toLowerCase()[0].charCodeAt();
+                        } else {
+                            x = parseFloat(rows[i].getElementsByTagName("TD")[column_index].innerHTML);
+                            y = parseFloat(rows[i + 1].getElementsByTagName("TD")[column_index].innerHTML);
+                        }
+                        if(sorted_direction == "descending"){
+                            if (x < y) {
+                                shouldSwitch = true;
+                                break;
+                            }
+                        } else {
+                            if(x > y){
+                                shouldSwitch = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (shouldSwitch) {
+                        rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+                        switching = true;
+                    }
+                }
+            }
+            var websocket;
+            var data_recv;
+            function makeRow(symbol){
+                $.ajax({
+                    type: "GET",
+                    url: "https://finnhub.io/api/v1/quote?symbol=" + symbol + "&token=c3dii32ad3icrjj6j6ig",
+                    data : {format : 'plain'},
+                    success: function(response) {
+                        if (!response){
+                            return;
+                        }
+                        var open_price = response.o;
+                        var current_price = response.c;
+                        var open = parseFloat(open_price);
+                        var newp = parseFloat(current_price);
+                        var diff = newp - open;
+                        var tr = document.createElement("tr");  // row
+                        var tds = document.createElement("td"); // symbol
+                        var tdo = document.createElement("td"); // open price
+                        var tdp = document.createElement("td"); // current price
+                        var tdd = document.createElement("td"); // delta
+                        // row
+                        tr.id = symbol;
+                        // symbol
+                        tds.innerHTML = symbol;
+                        tds.id = symbol + "_";
+                        // open price
+                        tdo.innerHTML = open_price;
+                        tdo.id = symbol + "_open";
+                        // current price
+                        tdp.innerHTML = current_price;
+                        tdp.id = symbol + "_price";
+                        // delta
+                        tdd.id = symbol + "_delta";
+                        if(diff < 0){
+                            tdd.style.color = "red";
+                            tdd.innerHTML = diff.toFixed(4);
+                        } else {
+                            tdd.style.color = "green";
+                            tdd.innerHTML = diff.toFixed(4);
+                        }
+                        tr.appendChild(tds);    // symbol
+                        tr.appendChild(tdo);    // open price
+                        tr.appendChild(tdp);    // current price
+                        tr.appendChild(tdd);    // delta
+                        document.getElementById("tickers").appendChild(tr); // add row to table
+                        sortTable();
+                    }
+                });
+            }
+            function makeWebSocket(){
+                while(!websocket){
+                    try {
+                        websocket = new WebSocket("wss://ws.finnhub.io?token=c3dii32ad3icrjj6j6ig");
+                    }
+                    catch {}
+                }
+                wsCallbacks();
+            }
+            document.addEventListener("DOMContentLoaded",function(){
+                var canvas = document.getElementById("datCanvas");
+                canvas.height = 35;
+                canvas_interval = setInterval(function(){
+                    var w = document.scrollingElement.offsetWidth - 100;
+                    canvas.width = w;
+                    var ctx = canvas.getContext("2d");
+                    ctx.clearRect(0,0,canvas.width,canvas.height);
+                    ctx.beginPath();
+                    ctx.fillStyle = "#7FFF00";
+                    ctx.fillRect(ii, 0, 100, 30);
+                    ctx.stroke();
+                    ii = ii + 3;
+                    if(ii >= w){ ii = 0; };
+                },10);
+                document.getElementById("sy").onclick = symbol_onclick;
+                document.getElementById("sp").onclick = start_price_onclick;
+                document.getElementById("pr").onclick = price_onclick;
+                document.getElementById("de").onclick = delta_onclick;
+                symbols.forEach((i)=>{
+                    makeRow(i);
+                });
+                setTimeout(makeWebSocket,2000);
+            });
+            function wsCallbacks(){
+                clearInterval(canvas_interval);
+                document.getElementById("waiting").style.display = "none";
+                [...document.body.getElementsByClassName("waiting")].forEach((i)=>{
+                    i.style.display = "none";
+                });
+                document.getElementById("success").style.display = "block";
+                websocket.addEventListener('open', function (event) {
+                    symbols.forEach((i)=>{
+                        websocket.send(JSON.stringify({'type':'subscribe', 'symbol': i}));
+                    });
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'ENOB'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'MARA'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'SPY'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'AMC'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'GME'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'BCRX'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'BYND'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'TELL'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'IDEX'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'SESN'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'MVIS'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'NIO'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'RIOT'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'CCIV'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'LX'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'NOK'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'BBBY'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'WKHS'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'NAKD'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'EXPR'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'CLOV'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'FSR'}))
+                    // websocket.send(JSON.stringify({'type':'subscribe', 'symbol': 'RIDE'}))
+                });
+                // websocket.onclose = function (e) {
+                //     writeHost("DISCONNECTED");
+                // };
+                websocket.onmessage = function (e) {
+                    data_recv = e.data;
+                    var j = JSON.parse(e.data);
+                    if(isIterable(j.data)){
+                        [...j.data].forEach((i)=>{
+                            var symbol = i.s;
+                            var price = i.p;
+                            var open = parseFloat(document.getElementById(symbol + "_open").innerHTML);
+                            var newp = parseFloat(price);
+                            var diff = newp - open;
+                            document.getElementById(symbol + "_price").innerHTML = price;
+                            if(diff < 0){
+                                document.getElementById(symbol + "_delta").style.color = "red";
+                                document.getElementById(symbol + "_delta").innerHTML = diff.toFixed(4);
+                            } else {
+                                document.getElementById(symbol + "_delta").style.color = "green";
+                                document.getElementById(symbol + "_delta").innerHTML = diff.toFixed(4);
+                            }
+                            sortTable();
+                        });
+                    } else {
+                        if(j.type != 'ping'){
+                            var symbol = j.data.s
+                            var price = j.data.p
+                            if(!document.getElementById(symbol)){
+                                var tr = document.createElement("tr");
+                                var tds = document.createElement("td");
+                                var tdo = document.createElement("td");
+                                var tdp = document.createElement("td");
+                                var tdd = document.createElement("td");
+                                tr.id = symbol;
+                                tds.innerHTML = symbol;
+                                tds.id = symbol + "_";
+                                tdp.innerHTML = price;
+                                tdp.id = symbol + "_price";
+                                tdd.id = symbol + "_delta";
+                                $.ajax({
+                                    type: "GET",
+                                    url: "https://finnhub.io/api/v1/quote?symbol=" + symbol + "&token=c3dii32ad3icrjj6j6ig",
+                                    data : {format : 'plain'},
+                                    success: function(response) {
+                                        if (!response){
+                                            return;
+                                        }
+                                        var open_price = response.o;
+                                        tdo.id = symbol + "_open";
+                                        tdo.innerHTML = open_price;
+                                        tr.appendChild(tds);
+                                        tr.appendChild(tdo);
+                                        tr.appendChild(tdp);
+                                        tr.appendChild(tdd)
+                                        document.getElementById("tickers").appendChild(tr);
+                                    }
+                                });
+                            } else {
+                                var open = parseFloat(document.getElementById(symbol + "_open").innerHTML);
+                                var newp = parseFloat(price);
+                                var diff = newp - open;
+                                document.getElementById(symbol + "_price").innerHTML = price;
+                                if(diff < 0){
+                                    document.getElementById(symbol + "_delta").style.color = "red";
+                                    document.getElementById(symbol + "_delta").innerHTML = diff.toFixed(4);
+                                } else {
+                                    document.getElementById(symbol + "_delta").style.color = "green";
+                                    document.getElementById(symbol + "_delta").innerHTML = diff.toFixed(4);
+                                }
+                                sortTable();
+                            }
+                        }
+                    }
+                };
+                websocket.onerror = function (e) {
+                    writeHost(e.data);
+                };
+            }
+            function writeHost(message) {
+                document.getElementById("output").insertAdjacentHTML("afterbegin", "<div style=\"display: block;\"><span>" + message + "</span></div>");
+            }
+            function writeError(message){
+                document.getElementById("output").insertAdjacentHTML("afterbegin", "<div style=\"display: block;\"><span class=\"error\">" + message + "</span></div>");
+            }
+            function symbol_onclick(){
+                column_index = 0;
+                sortTable_onclick();
+                if(sorted_direction == "descending"){
+                    document.getElementById("sy").innerHTML = "SYMBOL &darr;";
+                } else {
+                    document.getElementById("sy").innerHTML = "SYMBOL &uarr;";
+                }
+                document.getElementById("sy").style.backgroundColor = "chartreuse";
+                document.getElementById("sy").style.color = "black";
+                ['sp','pr','de'].forEach((i)=>{
+                    document.getElementById(i).style.backgroundColor = "black";
+                    document.getElementById(i).style.color = "white";
+                });
+                document.getElementById('sp').innerHTML = "MARKET OPEN";
+                document.getElementById('pr').innerHTML = "PRICE";
+                document.getElementById('de').innerHTML = "&Delta;";
+            }
+            function start_price_onclick(){
+                column_index = 1;
+                sortTable_onclick();
+                if(sorted_direction == "descending"){
+                    document.getElementById("sp").innerHTML = "MARKET OPEN &darr;";
+                } else {
+                    document.getElementById("sp").innerHTML = "MARKET OPEN &uarr;";
+                }
+                document.getElementById("sp").style.backgroundColor = "chartreuse";
+                document.getElementById("sp").style.color = "black";
+                ['sy','pr','de'].forEach((i)=>{
+                    document.getElementById(i).style.backgroundColor = "black";
+                    document.getElementById(i).style.color = "white";
+                });
+                document.getElementById('sy').innerHTML = "SYMBOL";
+                document.getElementById('pr').innerHTML = "PRICE";
+                document.getElementById('de').innerHTML = "&Delta;";
+            }
+            function price_onclick(){
+                column_index = 2;
+                sortTable_onclick();
+                if(sorted_direction == "descending"){
+                    document.getElementById("pr").innerHTML = "PRICE &darr;";
+                } else {
+                    document.getElementById("pr").innerHTML = "PRICE &uarr;";
+                }
+                document.getElementById("pr").style.backgroundColor = "chartreuse";
+                document.getElementById("pr").style.color = "black";
+                ['sp','sy','de'].forEach((i)=>{
+                    document.getElementById(i).style.backgroundColor = "black";
+                    document.getElementById(i).style.color = "white";
+                });
+                document.getElementById('sp').innerHTML = "MARKET OPEN";
+                document.getElementById('sy').innerHTML = "SYMBOL";
+                document.getElementById('de').innerHTML = "&Delta;";
+            }
+            function delta_onclick(){
+                column_index = 3;
+                sortTable_onclick();
+                if(sorted_direction == "descending"){
+                    document.getElementById("de").innerHTML = "&Delta; &darr;";
+                } else {
+                    document.getElementById("de").innerHTML = "&Delta; &uarr;";
+                }
+                document.getElementById("de").style.backgroundColor = "chartreuse";
+                document.getElementById("de").style.color = "black";
+                ['sp','pr','sy'].forEach((i)=>{
+                    document.getElementById(i).style.backgroundColor = "black";
+                    document.getElementById(i).style.color = "white";
+                });
+                document.getElementById('sp').innerHTML = "MARKET OPEN";
+                document.getElementById('pr').innerHTML = "PRICE";
+                document.getElementById('sy').innerHTML = "SYMBOL";
+            }
+            function addSymbols(){
+                var sym = document.getElementById("comsep").value;
+                var er = [];
+                if(!sym.match(",")){
+                    document.getElementById("erroneous").style.display = "block";
+                    setTimeout(function(){ document.getElementById("erroneous").style.display = "none"; },5000);
+                } else {
+                    [...sym.split(",")].forEach((i)=>{
+                        if(symbols.indexOf(i) == -1){
+                            symbols.push(i);
+                        }
+                    });
+                    symbols.forEach((i)=>{
+                        var s = i;
+                        if(!document.getElementById(i)){
+                            try {
+                                makeRow(i);
+                            }
+                            catch(err) {
+                                var e = {"symbol": "", "error": ""};
+                                e.symbol = s;
+                                e.error = err.message;
+                                er.push(e);
+                            }
+                        }
+                    });
+                    if(er.length > 0){
+                        document.getElementById("erroneous").innerHTML = JSON.stringify(er);
+                    } else {
+                        document.getElementById("added").style.display = "block";
+                        setTimeout(function(){ document.getElementById("added").style.display = "none"; },5000);
+                    }
+                }
+                if(websocket.readyState == 3){
+                    makeWebSocket();
+                }
+            }
+            function clearSymbols(){
+                [...document.body.getElementsByTagName("tr")].forEach((i)=>{
+                    if(i.children[0].tagName.toLowerCase() != "th"){
+                        [...i.children].forEach((a)=>{
+                            a.innerHTML = "";
+                        });
+                        i.parentElement.removeChild(i);
+                    }
+                });
+                websocket.close();
+            }
+        </script>
+        <style type="text/css">
+            table,tr,th,td {
+                border-collapse: collapse;
+                border: 1px solid white;
+            }
+            th,td {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+                font-size: 16pt;
+                background-color: black;
+                color: white;
+                padding: 5px;
+            }
+            body {
+                background-color: black;
+                color: white;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+                font-size: 16pt;
+                white-space: nowrap;
+            }
+            button {
+                background-color: black;
+                color: white;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+                font-size: 16pt;
+                width: 100%;
+            }
+            .heading {
+                text-decoration: underline;
+            }
+            .container {
+                width: 50%;
+                margin: auto;
+            }
+            .waiting {
+                color: chartreuse;
+            }
+            textarea {
+                width: 100%;
+                margin: auto;
+                overflow-x: scroll;
+                display: block;
+                font-size: 16px;
+                background-color: rgb(126, 126, 126);
+                color: black;
+                font-weight: bold;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            }
+            textarea::-webkit-input-placeholder {
+                color: black;
+            }
+            textarea:-moz-placeholder { /* Firefox 18- */
+                color: black;  
+            }
+            textarea::-moz-placeholder {  /* Firefox 19+ */
+                color: black;  
+            }
+            textarea:-ms-input-placeholder {
+                color: black;  
+            }
+            textarea::placeholder {
+                color: black;  
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1 class="heading">STONKS</h1>
+            <span class="waiting">Waiting for websocket connection</span>
+        </div>
+        <div id="waiting"><canvas id="datCanvas"></canvas></div>
+        <div class="container">
+            <div id="addtickers">
+                <div id="added" style="color: chartreuse; display: none;">Successfully added all tickers!</div>
+                <button onclick="addSymbols();" style="font-weight: bold; width: 130px; display: inline;background-color: chartreuse; color: black; font-family:  -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;" id="buttonadd">ADD</button>
+                <button onclick="clearSymbols();" style="font-weight: bold; width: 130px; display: inline;background-color: red; color: white; font-family:  -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;" id="buttonadd">CLEAR ALL</button>
+                <textarea  rows="2" spellcheck="false" id="comsep" placeholder="Paste your comma separated list of tickers here and then click ADD."></textarea>
+                <div id="erroneous" style="color: red; display: none;">Please ensure that your list of tickers is comma delimited.</div>
+            </div>
+            <div id="success" style="display: none;"><span style="color: chartreuse;">Websocket connected!</span></div>
+            <div><span style="color:blue;">Click a column header to sort</span></div>
+            <table id="tickers">
+                <colgroup>
+                    <col style="width: 41px;"/>
+                    <col style="width: 150px;"/>
+                    <col style="width: 150px;"/>
+                    <col style="width: 150px;"/>
+                </colgroup>
+                <tr>
+                    <th><button id="sy">SYMBOL</button></th>
+                    <th><button id="sp">MARKET OPEN</button></th>
+                    <th><button id="pr">PRICE</button></th>
+                    <th><button style="background-color: chartreuse; color: black;" id="de">&Delta; &darr;</button></th>
+                </tr>
+            </div>
+        </div>
+    </body>
+</html>
