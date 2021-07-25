@@ -4,7 +4,7 @@ Live table containing stock symbols, their market-open price, their current pric
   
 Data is provided by **[finnhub.io](https://finnhub.io)**.  
   
-You can also clear the table from it's preconfigured list of symbols using the **clear all** button and add your own comma-separated list *(example below)* of symbols via the textarea and the **add** button.  
+You can also clear the table of your list of symbols using the **Clear All Tickers** button and add your own comma-separated list *(example below)* of symbols into the textarea and strike **enter**. 
 ```sh
 ENOB,MARA,SPY,AMC,GME,BCRX,BYND,TELL,IDEX
 ```  
