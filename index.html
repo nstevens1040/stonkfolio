@@ -15,6 +15,7 @@
             var canvas_interval;
             var websocket = null;
             var data_recv;
+            var clear_called = false;
             function defer(method,condition){
                 if(condition){
                     method()
@@ -143,6 +144,7 @@
                 }
             }
             function makeRow(symbol){
+                console.log("makeRow called");
                 if(!document.getElementById(symbol)){
                     $.ajax({
                         type: "GET",
@@ -162,19 +164,14 @@
                             var tdo = document.createElement("td"); // open price
                             var tdp = document.createElement("td"); // current price
                             var tdd = document.createElement("td"); // delta
-                            // row
-                            tr.id = symbol;
-                            // symbol
-                            tds.innerHTML = symbol;
+                            tr.id = symbol;                         // row
+                            tds.innerHTML = symbol;                 // symbol
                             tds.id = symbol + "_";
-                            // open price
-                            tdo.innerHTML = open_price;
+                            tdo.innerHTML = open_price;             // open price
                             tdo.id = symbol + "_open";
-                            // current price
-                            tdp.innerHTML = current_price;
+                            tdp.innerHTML = current_price;          // current price
                             tdp.id = symbol + "_price";
-                            // delta
-                            tdd.id = symbol + "_delta";
+                            tdd.id = symbol + "_delta";             // delta
                             if(diff < 0){
                                 tdd.style.color = "red";
                                 tdd.innerHTML = diff.toFixed(4);
@@ -186,13 +183,16 @@
                             tr.appendChild(tdo);    // open price
                             tr.appendChild(tdp);    // current price
                             tr.appendChild(tdd);    // delta
-                            document.getElementById("tickers").appendChild(tr); // add row to table
+                            if(!clear_called){
+                                document.getElementById("tickers").appendChild(tr); // add row to table
+                            }
                             sortTable();
                         }
                     });
                 }
             }
             function websocket_onmessage(e){
+                console.log("websocket_onmessage called");
                 data_recv = e.data;
                 var j = JSON.parse(e.data);
                 if(isIterable(j.data)){
@@ -206,13 +206,10 @@
                             var tdp = document.createElement("td");
                             var tdd = document.createElement("td");
                             tr.id = symbol;
-
                             tds.innerHTML = symbol;
                             tds.id = symbol + "_";
-
                             tdp.innerHTML = parseFloat(price);
                             tdp.id = symbol + "_price";
-
                             tdd.id = symbol + "_delta";
                             $.ajax({
                                 type: "GET",
@@ -267,13 +264,10 @@
                             var tdp = document.createElement("td");
                             var tdd = document.createElement("td");
                             tr.id = symbol;
-
                             tds.innerHTML = symbol;
                             tds.id = symbol + "_";
-
                             tdp.innerHTML = parseFloat(price);
                             tdp.id = symbol + "_price";
-
                             tdd.id = symbol + "_delta";
                             $.ajax({
                                 type: "GET",
@@ -320,21 +314,20 @@
                 }
             }
             function websocket_onopen(e){
-                clearInterval(canvas_interval);
+                document.getElementById("waiting").style.visibility = "hidden";
                 check_ws = setInterval(show_websocket_state,500);
-                document.getElementById("waiting").style.display = "none";
                 [...document.body.getElementsByClassName("waiting")].forEach((i)=>{
                     i.style.display = "none";
                 });
                 document.getElementById("success").style.display = "block";
                 symbols.forEach((i)=>{
-                    makeRow(i);
                     setTimeout(()=>{
                         websocket.send(JSON.stringify({'type':'subscribe', 'symbol': i}));
                     },100);
                 });
             }
             function makeWebSocket(){
+                websocket = null;
                 while(!websocket){
                     try {
                         websocket = new WebSocket("wss://ws.finnhub.io?token=c3dii32ad3icrjj6j6ig");
@@ -344,7 +337,7 @@
                     catch {}
                 }
             }
-            document.addEventListener("DOMContentLoaded",function(){
+            function start_marqee(){
                 var canvas = document.getElementById("datCanvas");
                 canvas.height = 35;
                 ii = window.innerWidth;
@@ -361,19 +354,17 @@
                     ii--;
                     if(ii <= -532.037109375){ ii = window.innerWidth; };
                 },10);
+            }
+            document.addEventListener("DOMContentLoaded",function(){
+                start_marqee();
                 document.getElementById("comsep").addEventListener("input",responsive_ta);
                 document.getElementById("addtickers").style.width = "515px";
                 document.getElementById("sy").onclick = symbol_onclick;
                 document.getElementById("sp").onclick = start_price_onclick;
                 document.getElementById("pr").onclick = price_onclick;
                 document.getElementById("de").onclick = delta_onclick;
+                document.getElementById("comsep").addEventListener("keydown",ta_keyup);
             });
-            function writeHost(message) {
-                document.getElementById("output").insertAdjacentHTML("afterbegin", "<div style=\"display: block;\"><span>" + message + "</span></div>");
-            }
-            function writeError(message){
-                document.getElementById("output").insertAdjacentHTML("afterbegin", "<div style=\"display: block;\"><span class=\"error\">" + message + "</span></div>");
-            }
             function symbol_onclick(){
                 column_index = 0;
                 sortTable_onclick();
@@ -447,9 +438,10 @@
                 document.getElementById('sy').innerHTML = "SYMBOL";
             }
             function addSymbols(){
-                var sym = document.getElementById("comsep").value;
+                clear_called = false;
+                var sym = document.getElementById("comsep").value.trim();
                 var er = [];
-                if(!sym.match(",")){
+                if(sym.length >= 6 & !sym.match(",")){
                     document.getElementById("erroneous").style.display = "block";
                     setTimeout(function(){ document.getElementById("erroneous").style.display = "none"; },5000);
                 } else {
@@ -461,6 +453,10 @@
                 }
                 if(!websocket){
                     makeWebSocket();
+                } else {
+                    if(websocket.readyState != 1){
+                        makeWebSocket();
+                    }
                 }
                 symbols.forEach((i)=>{
                     var s = i;
@@ -501,20 +497,25 @@
                 document.getElementById("comsep").style.display = "none";
             }
             function show_websocket_state(){
-                var state = websocket.readyState;
-                switch(state){
-                    case 0:
-                        document.getElementById("success").innerHTML = "WebSocket connecting ...";
-                        break;
-                    case 1:
-                        document.getElementById("success").innerHTML = "WebSocket ready!";
-                        break;
-                    case 2:
-                        document.getElementById("success").innerHTML = "WebSocket closing ...";
-                        break;
-                    case 3:
-                        document.getElementById("success").innerHTML = "WebSocket closed!";
-                        break;
+                if(!websocket){
+                    document.getElementById("success").innerHTML = "null websocket";
+                    return;
+                } else {
+                    var state = websocket.readyState;
+                    switch(state){
+                        case 0:
+                            document.getElementById("success").innerHTML = "WebSocket connecting ...";
+                            break;
+                        case 1:
+                            document.getElementById("success").innerHTML = "WebSocket ready!";
+                            break;
+                        case 2:
+                            document.getElementById("success").innerHTML = "WebSocket closing ...";
+                            break;
+                        case 3:
+                            document.getElementById("success").innerHTML = "WebSocket closed!";
+                            break;
+                    }
                 }
             }
             function hide_show_row(){
@@ -522,7 +523,7 @@
                 var symbol = this.id.replace("button","").toUpperCase();
                 var id = this.id;
                 switch(this.getAttribute("data-color")){
-                    case "red":
+                    case "blue":
                         this.setAttribute("data-color","chartreuse");
                         document.getElementById(symbol).style.display = "none";
                         this.style.backgroundColor = "chartreuse";
@@ -537,6 +538,7 @@
                 }
             }
             function clearSymbols(){
+                clear_called = true;
                 [...document.body.getElementsByTagName("tr")].forEach((i)=>{
                     if(i.children[0].tagName.toLowerCase() != "th"){
                         [...i.children].forEach((a)=>{
@@ -548,9 +550,15 @@
                 [...document.getElementById("tickerbuttons").children].forEach((i)=>{
                     i.parentElement.removeChild(i);
                 });
-                document.getElementById("comsep").style.display = "block";
+                document.getElementById("comsep").style.display = "inline-block";
                 websocket.close();
+                websocket = null;
                 symbols = [];
+                document.getElementById("comsep").value = "";
+                document.getElementById("comsep").setAttribute("placeholder","AMC,NTLA,SESN,HCM,BCRX,LX,TELL,BB,EXPR,WKHS,WISH,EDIT,SOFI,CRCT");
+                document.getElementById("comsep").style.width = "100%";
+                document.getElementById("comsep").style.height = "";
+                document.getElementById("waiting").style.visibility = "";
             }
             function make_ticker_button(symbol){
                 var parent = document.getElementById("tickerbuttons");
@@ -560,22 +568,30 @@
                 button.id = symbol.toLowerCase() + "button";
                 button.innerHTML = symbol.toUpperCase();
                 button.setAttribute("data-symbol",symbol.toUpperCase());
-                button.setAttribute("data-color","red");
+                button.setAttribute("data-color","blue");
                 button.title = "Hides " + symbol.toUpperCase() + " row from the table";
                 button.addEventListener("click",hide_show_row);
                 parent.appendChild(button);
             }
+            function ta_keyup(event){
+                if(event.keyCode == 13){
+                    addSymbols();
+                }
+            }
             function responsive_ta(){
-                document.getElementById("width").innerHTML = "";
-                document.getElementById("width").innerHTML = document.getElementById("comsep").value.trim();
-                var w = (document.getElementById("width").clientWidth + 1) + "px";
-                var h = (document.getElementById("width").clientHeight + 1) + "px";
-                console.log(JSON.stringify({width: w,height: h}));
-                document.getElementById("comsep").style.width = w;
-                document.getElementById("comsep").style.height = h;
-                document.getElementById("width").innerHTML = "";
-                document.getElementById("comsep").blur();
-                addSymbols();
+                if(!document.getElementById("comsep").value){
+                    document.getElementById("comsep").setAttribute("placeholder","AMC,NTLA,SESN,HCM,BCRX,LX,TELL,BB,EXPR,WKHS,WISH,EDIT,SOFI,CRCT");
+                    document.getElementById("comsep").style.width = "100%";
+                    document.getElementById("comsep").style.height = "";
+                } else {
+                    document.getElementById("width").innerHTML = document.getElementById("comsep").value.trim();
+                    var w = (document.getElementById("width").clientWidth + 1) + "px";
+                    var h = (document.getElementById("width").clientHeight + 1) + "px";
+                    console.log(JSON.stringify({width: w,height: h}));
+                    document.getElementById("comsep").style.width = w;
+                    document.getElementById("comsep").style.height = h;
+                    document.getElementById("width").innerHTML = "";
+                }
             };
         </script>
         <style type="text/css">
@@ -622,33 +638,13 @@
             }
             textarea {
                 width: 100%;
-                margin: auto;
-                /* overflow-x: scroll; */
-                display: block;
-                /* font-size: 16px; */
-                /* background-color: rgb(126, 126, 126); */
-                /* color: black; */
-                /* font-weight: bold; */
+                overflow: hidden;
+                resize: none;
                 background-color:rgb(0, 18, 97);
                 color: white;
                 font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
                 font-size: 12px;
             }
-            /* textarea::-webkit-input-placeholder {
-                color: black;
-            }
-            textarea:-moz-placeholder { 
-                color: black;  
-            }
-            textarea::-moz-placeholder { 
-                color: black;  
-            }
-            textarea:-ms-input-placeholder {
-                color: black;  
-            }
-            textarea::placeholder {
-                color: black;  
-            } */
             #width {
                 position: absolute;
                 visibility: hidden;
@@ -668,14 +664,12 @@
     <body>
         <div class="container">
             <h1 class="heading">STONKS</h1>
-            <!--span class="waiting">Add your comma separated list of tickers in the text box below</span-->
         </div>
         <div id="waiting"><canvas id="datCanvas"></canvas></div>
         <div class="container" id="maindiv">
             <div id="addtickers">
                 <div id="added" style="color: chartreuse; display: none;">Successfully added all tickers!</div>
-                <!--button onclick="addSymbols();" style="font-weight: bold; width: 130px; display: inline;background-color: chartreuse; color: black; font-family:  -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;" id="buttonadd">ADD</button-->
-                <textarea  spellcheck="false" id="comsep" placeholder="AMC,NTLA,SESN,HCM,BCRX,LX,TELL,BB,EXPR,WKHS,WISH,EDIT,SOFI,CRCT"></textarea>
+                <textarea rows="1" spellcheck="false" id="comsep" placeholder="AMC,NTLA,SESN,HCM,BCRX,LX,TELL,BB,EXPR,WKHS,WISH,EDIT,SOFI,CRCT"></textarea>
                 <div id="tickerbuttons"></div>
                 <button onclick="clearSymbols();" style="font-weight: bold; width: 130px; display: inline;background-color: red; color: white; font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;" id="buttonadd">Clear All Tickers</button>
                 <div id="erroneous" style="color: red; display: none;">Please ensure that your list of tickers is comma delimited.</div>
